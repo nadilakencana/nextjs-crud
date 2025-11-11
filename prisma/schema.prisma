@@ -13,3 +13,62 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+// 1. Model untuk Autentikasi (User)
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String 
+
+  // Relasi dengan Product (User membuat Product)
+  products      Product[]
+
+  @@map("users")
+}
+
+// 2. Model Kategori
+model Category {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  products  Product[] // Relasi One-to-Many: Satu Category punya banyak Product
+
+  @@map("categories")
+}
+
+// 3. Model Tipe
+model Type {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  products  Product[] // Relasi One-to-Many: Satu Type punya banyak Product
+
+  @@map("types")
+}
+
+// 4. Model Produk (Dengan Relasi)
+model Product {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  price       Float
+  stock       Int
+  imageUrl    String?  // Field baru yang ditambahkan
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relasi ke Category (Many-to-One)
+  categoryId  Int
+  category    Category @relation(fields: [categoryId], references: [id])
+
+  // Relasi ke Type (Many-to-One)
+  typeId      Int
+  type        Type     @relation(fields: [typeId], references: [id])
+
+  // Relasi ke User (Siapa yang membuat/mengupdate)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@map("products")
+}
