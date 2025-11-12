@@ -22,7 +22,8 @@ model User {
   emailVerified DateTime?
   image         String?
   password      String 
-
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
   // Relasi dengan Product (User membuat Product)
   products      Product[]
 
@@ -33,6 +34,8 @@ model User {
 model Category {
   id        Int       @id @default(autoincrement())
   name      String    @unique
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
   products  Product[] // Relasi One-to-Many: Satu Category punya banyak Product
 
   @@map("categories")
@@ -42,6 +45,8 @@ model Category {
 model Type {
   id        Int       @id @default(autoincrement())
   name      String    @unique
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
   products  Product[] // Relasi One-to-Many: Satu Type punya banyak Product
 
   @@map("types")
@@ -60,15 +65,15 @@ model Product {
 
   // Relasi ke Category (Many-to-One)
   categoryId  Int
-  category    Category @relation(fields: [categoryId], references: [id])
+  category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   // Relasi ke Type (Many-to-One)
   typeId      Int
-  type        Type     @relation(fields: [typeId], references: [id])
+  type        Type     @relation(fields: [typeId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   // Relasi ke User (Siapa yang membuat/mengupdate)
   userId      String
-  user        User     @relation(fields: [userId], references: [id])
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   @@map("products")
 }
