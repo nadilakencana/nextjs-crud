@@ -37,8 +37,8 @@ model User {
 model Category {
   id        Int       @id @default(autoincrement())
   name      String    @unique
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
   products  Product[] // Relasi One-to-Many: Satu Category punya banyak Product
 
   @@map("categories")
@@ -48,8 +48,8 @@ model Category {
 model Type {
   id        Int       @id @default(autoincrement())
   name      String    @unique
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
   products  Product[] // Relasi One-to-Many: Satu Type punya banyak Product
 
   @@map("types")
