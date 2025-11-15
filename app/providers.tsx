@@ -10,5 +10,4 @@ import { SessionProvider } from "next-auth/react";
 // Komponen ini membungkus children dengan SessionProvider agar dapat mengakses session auth di komponen child
 export function Providers({ children } : { children: React.ReactNode }) {
     return <SessionProvider>{children}</SessionProvider> ;
-    return <SessionProvider>{children}</SessionProvider>;
 }

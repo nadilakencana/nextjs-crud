@@ -31,18 +31,10 @@ export default function RootLayout({
   children: React.ReactNode; // Type untuk React children
 }>) {
   return (
-    <html lang="en"> {/* HTML root dengan bahasa Inggris */}
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-        // className menggabungkan:
-        // - geistSans.variable: CSS variable untuk font sans
-        // - geistMono.variable: CSS variable untuk font mono
-        // - antialiased: Tailwind class untuk smooth font rendering
-      >
-       {/* PROVIDERS WRAPPER */}
-       {/* Providers membungkus app dengan SessionProvider untuk NextAuth */}
-       <Providers>
-          {children} {/* Konten halaman akan di-render di sini */}
+    <html lang="en">
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <Providers>
+          {children}
         </Providers>
       </body>
     </html>
