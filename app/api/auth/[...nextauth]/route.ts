@@ -1,153 +1,205 @@
-// NEXTAUTH IMPORTS
-import NextAuth, {AuthOptions} from "next-auth" // Core NextAuth dan types
-import CredentialsProvider from "next-auth/providers/credentials" // Provider untuk email/password
-import { PrismaAdapter } from "@auth/prisma-adapter" // Adapter untuk koneksi database
-import { PrismaClient } from "../../../generated/prisma/client" // Prisma client dari generated folder
-import bcrypt from "bcryptjs" // Library untuk hash/compare password
+import NextAuth, { AuthOptions } from "next-auth"
+import CredentialsProvider from "next-auth/providers/credentials"
+import { PrismaClient } from "../../../generated/prisma/client"
+import bcrypt from "bcryptjs"
+import jwt from "jsonwebtoken"
+import { NextResponse } from "next/server"
 
-
-// DATABASE CONNECTION
-// Membuat instance Prisma Client untuk koneksi ke database
 const prisma = new PrismaClient()
 
-// NEXTAUTH CONFIGURATION
-// Konfigurasi utama NextAuth dengan semua pengaturan autentikasi
+// ==================== NEXTAUTH CONFIGURATION ====================
 export const authOptions: AuthOptions = {
-  // DATABASE ADAPTER
-  // Menghubungkan NextAuth dengan database melalui Prisma
-  adapter : PrismaAdapter(prisma),
-  
-  // AUTHENTICATION PROVIDERS
-  // Daftar metode login yang tersedia (bisa multiple providers)
   providers: [
-    // CREDENTIALS PROVIDER
-    // Provider untuk login dengan email/password
     CredentialsProvider({
-      name: "Credentials", // Nama provider yang ditampilkan
-      
-      // FORM FIELDS CONFIGURATION
-      // Mendefinisikan field input untuk form login
+      name: "Credentials",
       credentials: {
-        email: {label: "Email", type: "text"}, // Field email dengan label dan type
-        password: {label:"Password", type:"password"}, // Field password (hidden)
+        email: { label: "Email", type: "text" },
+        password: { label: "Password", type: "password" },
       },
-      
-      // AUTHORIZATION FUNCTION
-      // Fungsi yang dipanggil saat user submit form login
-      async authorize(credentials){
+      async authorize(credentials) {
+        console.log('🔐 Login attempt:', credentials?.email);
 
-        // STEP 1: INPUT VALIDATION
-        // Cek apakah email dan password ada/tidak kosong
-        if(!credentials?.email || !credentials?.password){
-          return null // Return null = login gagal
+        if (!credentials?.email || !credentials?.password) {
+          console.log('❌ Missing credentials');
+          return null
         }
-        
-        // STEP 2: DATABASE LOOKUP
-        // Cari user di database berdasarkan email
+
         const user = await prisma.user.findUnique({
-          where: {
-            email: credentials.email // Cari berdasarkan email yang diinput
-          }
+          where: { email: credentials.email }
         })
-        
-        // STEP 3: USER EXISTENCE CHECK
-        // Cek apakah user ditemukan dan punya password
-        if(!user || !user.password){
-          return null // User tidak ditemukan atau tidak punya password
+
+        if (!user || !user.password) {
+          console.log('❌ User not found or no password');
+          return null
         }
-        
-        // STEP 4: PASSWORD VERIFICATION
-        // Bandingkan password input dengan hash di database
-       const isPasswordValid = await bcrypt.compare(
-          credentials.password, // Password yang diinput user
-          user.password // Password hash dari database
+
+        const isPasswordValid = await bcrypt.compare(
+          credentials.password,
+          user.password
         );
 
-        // STEP 5: RETURN RESULT
         if (isPasswordValid) {
-          // Password benar - return user data untuk session
+          console.log('✅ Login successful for:', user.email);
           return {
-            id: user.id, // ID user (wajib untuk NextAuth)
-            name: user.name, // Nama user
-            email: user.email, // Email user
+            id: user.id,
+            name: user.name,
+            email: user.email,
           };
         }
 
-        return null; // Password salah - login gagal
-      
+        console.log('❌ Invalid password');
+        return null
       },
     }),
   ],
-  
-  // SESSION CONFIGURATION
-  // Pengaturan bagaimana session disimpan
   session: {
-    strategy: "jwt", // Menggunakan JWT token (bukan database session)
+    strategy: "jwt",
   },
-  
-  // CUSTOM PAGES
-  // Redirect ke halaman custom alih-alih default NextAuth
   pages: {
-    signIn: "/login", // Halaman login kustom di /login
+    signIn: "/login",
   },
-  
-  // CALLBACKS
-  // Fungsi yang dipanggil pada event tertentu untuk memodifikasi data
   callbacks: {
-    // JWT CALLBACK
-    // Dipanggil saat JWT token dibuat/diperbarui
     async jwt({ token, user }) {
-      // Saat login pertama kali, user object tersedia
       if (user) {
-        token.email = user.email; // Simpan email ke JWT token
+        token.email = user.email;
       }
-      return token; // Return token yang sudah dimodifikasi
+      return token;
     },
-    
-    // SESSION CALLBACK
-    // Dipanggil saat session diakses (getSession, useSession)
     async session({ session, token }) {
-      // Transfer data dari JWT token ke session object
       if (token && session.user) {
-        session.user.email = token.email as string; // Ambil email dari token
+        session.user.email = token.email as string;
       }
-      return session; // Return session yang sudah dimodifikasi
+      return session;
     },
   },
 }
 
-// NEXTAUTH HANDLER
-// Membuat handler NextAuth dengan konfigurasi di atas
-const handler = NextAuth(authOptions);
+const nextAuthHandler = NextAuth(authOptions);
 
-// EXPORT HANDLERS
-// Export handler untuk HTTP GET dan POST requests
-// Next.js App Router membutuhkan named exports untuk HTTP methods
-export { handler as GET, handler as POST };
+// ==================== CUSTOM API HANDLERS ====================
 
-/*
-FLOW AUTENTIKASI:
+// LOGIN API - Returns JSON with token
+async function handlerLogin(request: Request) {
+  try {
+    const { email, password } = await request.json()
 
-1. USER SUBMIT FORM LOGIN
-   ↓
-2. NextAuth panggil authorize() function
-   ↓
-3. authorize() validasi credentials dan return user data
-   ↓
-4. NextAuth panggil jwt() callback untuk buat JWT token
-   ↓
-5. JWT token disimpan di browser (httpOnly cookie)
-   ↓
-6. Saat akses session, NextAuth panggil session() callback
-   ↓
-7. session() callback return data yang bisa diakses komponen
+    if (!email || !password) {
+      return NextResponse.json({ 
+        success: false, 
+        message: "Email dan password harus diisi" 
+      }, { status: 400 })
+    }
 
-KENAPA BUTUH CALLBACKS:
-- jwt() callback: Untuk menyimpan data tambahan ke JWT token
-- session() callback: Untuk mengambil data dari JWT dan expose ke komponen
-- Tanpa callbacks, session hanya berisi data default (name, email, image)
+    const user = await prisma.user.findUnique({
+      where: { email }
+    })
 
-STRATEGY JWT vs DATABASE:
-- JWT: Token disimpan di browser, stateless, cocok untuk serverless
-- Database: Session disimpan di database, stateful, lebih secure
-*/
+    if (!user || !user.password) {
+      return NextResponse.json({ 
+        success: false, 
+        message: "Email atau password salah" 
+      }, { status: 401 })
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password)
+
+    if (!isPasswordValid) {
+      return NextResponse.json({ 
+        success: false, 
+        message: "Email atau password salah" 
+      }, { status: 401 })
+    }
+
+    const token = jwt.sign(
+      { 
+        userId: user.id, 
+        email: user.email 
+      },
+      process.env.NEXTAUTH_SECRET || "secret",
+      { expiresIn: "24h" }
+    )
+
+    return NextResponse.json({
+      success: true,
+      message: "Login berhasil",
+      token,
+      user: {
+        name: user.name,
+        email: user.email
+      }
+    })
+
+  } catch (error) {
+    console.error("Login error:", error)
+    return NextResponse.json({ 
+      success: false, 
+      message: "Server error" 
+    }, { status: 500 })
+  }
+}
+
+// REGISTER API - Returns JSON
+async function handlerRegister(request: Request) {
+  try {
+    const body = await request.json();
+    const { name, email, password } = body;
+
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (existingUser) {
+      return NextResponse.json({
+        success: false,
+        message: "Email sudah terdaftar"
+      }, { status: 409 });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const newUser = await prisma.user.create({
+      data: {
+        name,
+        email,
+        password: hashedPassword,
+      },
+    });
+
+    const { password: _, ...userWithoutPassword } = newUser;
+
+    return NextResponse.json({
+      success: true,
+      message: "Registrasi berhasil",
+      user: userWithoutPassword
+    }, { status: 201 });
+
+  } catch (error) {
+    console.error("Error saat registrasi:", error);
+    return NextResponse.json({
+      success: false,
+      message: "Server error"
+    }, { status: 500 });
+  }
+}
+
+// ==================== ROUTE HANDLERS ====================
+
+export async function POST(request: Request, { params }: { params: { nextauth: string[] } }) {
+  const url = new URL(request.url);
+
+  // Custom API endpoints
+  if (url.pathname.endsWith("auth/regist")) {
+    return handlerRegister(request);
+  }
+  
+  if (url.pathname.endsWith("auth/login")) {
+    return handlerLogin(request);
+  }
+
+  // Default NextAuth endpoints
+  return nextAuthHandler(request, { params });
+}
+
+export async function GET(request: Request, { params }: { params: { nextauth: string[] } }) {
+  return nextAuthHandler(request, { params });
+}
