@@ -18,6 +18,27 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
+## Project Structure
+
+Proyek ini menggunakan struktur folder yang terorganisir:
+
+```
+app/
+├── page.tsx                 # Homepage
+├── authentikasi/            # Authentication pages
+│   ├── login/
+│   │   └── page.tsx         # Login page
+│   └── regist/
+│   │   └── page.tsx         # Registration page
+├── components/              # Reusable components
+├── lib/                     # Utilities and configurations
+└── globals.css              # Global styles
+```
+
+### Authentication Routes
+- `/authentikasi/login` - Halaman login
+- `/authentikasi/regist` - Halaman registrasi
+
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
 ## Learn More
